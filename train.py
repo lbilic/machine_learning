@@ -1,12 +1,6 @@
 import pandas as pd
-import sklearn
-from sklearn import metrics
-from scipy.cluster import hierarchy as hc
-from fastai.imports import *
-import os
-from sklearn_pandas import DataFrameMapper
-from pandas.api.types import is_string_dtype, is_numeric_dtype
-from sklearn.ensemble import forest
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error
 
 def drop_outliers(dataset):
     # Create feature totalDistance
@@ -62,40 +56,13 @@ def encode(dataset):
     dataset[['groupId_cat', 'matchId_cat']].head()
 
     return dataset
-
-def proc_df(df, y_fld, skip_flds=None, do_scale=False, na_dict=None,
-            preproc_fn=None, max_n_cat=None, subset=None, mapper=None):
-    if not skip_flds: skip_flds=[]
-    if subset: df = get_sample(df,subset)
-    df = df.copy()
-    if preproc_fn: preproc_fn(df)
-    y = df[y_fld].values
-    df.drop(skip_flds+[y_fld], axis=1, inplace=True)
-
-    if na_dict is None: na_dict = {}
-    for n,c in df.items(): na_dict = fix_missing(df, c, n, na_dict)
-    if do_scale: mapper = scale_vars(df, mapper)
-    for n,c in df.items(): numericalize(df, c, n, max_n_cat)
-    res = [pd.get_dummies(df, dummy_na=True), y, na_dict]
-    if do_scale: res = res + [mapper]
-    return res
-
-def rf_feat_importance(m, df):
-    return pd.DataFrame({'cols':df.columns, 'imp':m.feature_importances_}
-                       ).sort_values('imp', ascending=False)
-
-def set_rf_samples(n):
-    forest._generate_sample_indices = (lambda rs, n_samples:
-        forest.check_random_state(rs).randint(0, n_samples, n))
-
-def reset_rf_samples():
-    forest._generate_sample_indices = (lambda rs, n_samples:
-        forest.check_random_state(rs).randint(0, n_samples, n_samples))
-
+#
+# def split(a, n : int):
+#     return a[:n].copy(), a[n:].copy()
 
 if __name__ == '__main__':
-    train = pd.read_csv(os.join_dir('dataset', 'train_V2.csv'))
-    test = pd.read_csv(os.join_dir('dataset', 'test_V2.csv'))
+    train = pd.read_csv('train_V2.csv')
+    test = pd.read_csv('test_V2.csv')
 
     # Red sa null vrednosti za winPlacePerc
     train.drop(2744604, inplace=True)
@@ -107,12 +74,44 @@ if __name__ == '__main__':
     train['maxPlaceNorm'] = train['maxPlace']*((100-train['playersJoined'])/100 + 1)
     train['matchDurationNorm'] = train['matchDuration']*((100-train['playersJoined'])/100 + 1)
     train['healsandboosts'] = train['heals'] + train['boosts']
-
+    train = pd.get_dummies(train, columns=['matchType'])
     train = drop_outliers(train)
     train = encode(train)
 
-    # Drop Id column, because it probably won't be useful for our Machine Learning algorithm,
-    # because the test set contains different Id's
-    train.drop(columns = ['Id'], inplace=True)
+    # Pravljenje novih kolona
+    test['playersJoined'] = test.groupby('matchId')['matchId'].transform('count')
+    test['killsNorm'] = test['kills'] * ((100 - test['playersJoined']) / 100 + 1)
+    test['damageDealtNorm'] = test['damageDealt'] * ((100 - test['playersJoined']) / 100 + 1)
+    test['maxPlaceNorm'] = test['maxPlace'] * ((100 - test['playersJoined']) / 100 + 1)
+    test['matchDurationNorm'] = test['matchDuration'] * ((100 - test['playersJoined']) / 100 + 1)
+    test['healsandboosts'] = test['heals'] + test['boosts']
+    test = pd.get_dummies(test, columns=['matchType'])
+    test = drop_outliers(test)
+    test = encode(test)
 
-    print(train)
+    #razlikuju se ids u test i train
+    train.drop(columns = ['Id'], inplace=True)
+    test.drop(columns=['Id'], inplace=True)
+
+    sample = 50000
+    train_sample = train.sample(sample)
+    test_sample = test.sample(sample)
+
+    x_train = train_sample.drop(columns=['winPlacePerc'])
+    y_train = train_sample['winPlacePerc']
+
+    y_test = test_sample['winPlacePerc']
+    x_test = test_sample.drop(columns=['winPlacePerc'])
+
+    # val_perc = 0.12  # % to use for validation set
+    # n_valid = int(val_perc * sample)
+    # n_trn = len(x_train) - n_valid
+    # raw_train, raw_valid = split(train_sample, n_trn)
+    # X_train, X_valid = split(x_train, n_trn)
+    # y_train1, y_valid = split(y_train, n_trn)
+
+    m1 = RandomForestRegressor(n_estimators=70, min_samples_leaf=3, max_features=0.5,
+                               n_jobs=-1)
+    m1.fit(x_train, y_train)
+
+    print('Score: ', mean_absolute_error(m1.predict(x_test), y_test))
