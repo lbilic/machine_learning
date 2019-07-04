@@ -3,37 +3,37 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
 
 def drop_outliers(dataset):
-    # Create feature totalDistance
+    # Ukupno pretrcano
     dataset['totalDistance'] = dataset['rideDistance'] + dataset['walkDistance'] + dataset['swimDistance']
-    # Create feature killsWithoutMoving
+
     dataset['killsWithoutMoving'] = ((dataset['kills'] > 0) & (dataset['totalDistance'] == 0))
 
-    # Create headshot_rate feature
+    # Headshot
     dataset['headshot_rate'] = dataset['headshotKills'] / dataset['kills']
     dataset['headshot_rate'] = dataset['headshot_rate'].fillna(0)
 
-    # Remove outliers
+    # Outliers
     dataset.drop(dataset[dataset['killsWithoutMoving'] == True].index, inplace=True)
 
-    # Drop roadKill 'cheaters'
+    # Cheater 1
     dataset.drop(dataset[dataset['roadKills'] > 10].index, inplace=True)
 
-    # More than 30 kills, possible cheaters
+    # Cheater 2
     dataset.drop(dataset[dataset['kills'] > 30].index, inplace=True)
 
-    # Huge distance kills
+    #outliers
     dataset.drop(dataset[dataset['longestKill'] >= 1000].index, inplace=True)
 
-    # Huge walking distance
+    #outliers
     dataset.drop(dataset[dataset['walkDistance'] >= 10000].index, inplace=True)
 
-    # Remove ride distance outliers
+    #outliers
     dataset.drop(dataset[dataset['rideDistance'] >= 20000].index, inplace=True)
 
-    # Players who swam more than 2 km
+    #outliers
     dataset.drop(dataset[dataset['swimDistance'] >= 2000].index, inplace=True)
 
-    # Players who acquired more than 80 weapons
+    #cheater
     dataset.drop(dataset[dataset['weaponsAcquired'] >= 80].index, inplace=True)
 
     # 40 or more healing items used
@@ -41,18 +41,14 @@ def drop_outliers(dataset):
     return dataset
 
 def encode(dataset):
-    # Turn groupId and match Id into categorical types
     dataset['groupId'] = dataset['groupId'].astype('category')
     dataset['matchId'] = dataset['matchId'].astype('category')
 
-    # Get category coding for groupId and matchID
     dataset['groupId_cat'] = dataset['groupId'].cat.codes
     dataset['matchId_cat'] = dataset['matchId'].cat.codes
 
-    # Get rid of old columns
     dataset.drop(columns=['groupId', 'matchId'], inplace=True)
 
-    # Lets take a look at our newly created features
     dataset[['groupId_cat', 'matchId_cat']].head()
 
     return dataset
@@ -95,7 +91,7 @@ if __name__ == '__main__':
 
     sample = 50000
     train_sample = train.sample(sample)
-    test_sample = test.sample(sample)
+    test_sample = test.sample(2000)
 
     x_train = train_sample.drop(columns=['winPlacePerc'])
     y_train = train_sample['winPlacePerc']
@@ -103,7 +99,7 @@ if __name__ == '__main__':
     y_test = test_sample['winPlacePerc']
     x_test = test_sample.drop(columns=['winPlacePerc'])
 
-    # val_perc = 0.12  # % to use for validation set
+    # validation_perc = 0.12
     # n_valid = int(val_perc * sample)
     # n_trn = len(x_train) - n_valid
     # raw_train, raw_valid = split(train_sample, n_trn)
