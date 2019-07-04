@@ -69,7 +69,6 @@ if __name__ == '__main__':
     train['damageDealtNorm'] = train['damageDealt']*((100-train['playersJoined'])/100 + 1)
     train['maxPlaceNorm'] = train['maxPlace']*((100-train['playersJoined'])/100 + 1)
     train['matchDurationNorm'] = train['matchDuration']*((100-train['playersJoined'])/100 + 1)
-    train['healsandboosts'] = train['heals'] + train['boosts']
     train = pd.get_dummies(train, columns=['matchType'])
     train = drop_outliers(train)
     train = encode(train)
@@ -80,7 +79,6 @@ if __name__ == '__main__':
     test['damageDealtNorm'] = test['damageDealt'] * ((100 - test['playersJoined']) / 100 + 1)
     test['maxPlaceNorm'] = test['maxPlace'] * ((100 - test['playersJoined']) / 100 + 1)
     test['matchDurationNorm'] = test['matchDuration'] * ((100 - test['playersJoined']) / 100 + 1)
-    test['healsandboosts'] = test['heals'] + test['boosts']
     test = pd.get_dummies(test, columns=['matchType'])
     test = drop_outliers(test)
     test = encode(test)
@@ -91,7 +89,7 @@ if __name__ == '__main__':
 
     sample = 50000
     train_sample = train.sample(sample)
-    test_sample = test.sample(2000)
+    test_sample = test.sample(200)
 
     x_train = train_sample.drop(columns=['winPlacePerc'])
     y_train = train_sample['winPlacePerc']
